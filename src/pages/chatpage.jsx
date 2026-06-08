@@ -1,4 +1,5 @@
 import { useState } from "react";
+import axios from "axios";
 
 function ChatPage() {
   const mood = localStorage.getItem("mood") || "Not Selected";
@@ -11,8 +12,9 @@ function ChatPage() {
   ]);
 
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const sendMessage = () => {
+  const sendMessage = async () => {
     if (!input.trim()) return;
 
     const userMessage = {
@@ -20,13 +22,38 @@ function ChatPage() {
       text: input,
     };
 
-    const aiMessage = {
-      sender: "ai",
-      text: "Thank you for sharing. I understand how you feel. Tell me a little more about it.",
-    };
+    setMessages((prev) => [...prev, userMessage]);
 
-    setMessages((prev) => [...prev, userMessage, aiMessage]);
+    const currentInput = input;
     setInput("");
+    setLoading(true);
+
+    try {
+      const response = await axios.post(
+        "http://127.0.0.1:8000/chat",
+        {
+          message: currentInput,
+        }
+      );
+
+      const aiMessage = {
+        sender: "ai",
+        text: response.data.reply,
+      };
+
+      setMessages((prev) => [...prev, aiMessage]);
+
+    } catch (error) {
+      setMessages((prev) => [
+        ...prev,
+        {
+          sender: "ai",
+          text: "⚠️ Unable to connect to WorkBuddy AI.",
+        },
+      ]);
+    }
+
+    setLoading(false);
   };
 
   return (
@@ -124,30 +151,35 @@ function ChatPage() {
             </div>
           ))}
 
+          {loading && (
+            <div className="flex justify-start">
+              <div className="bg-white px-5 py-4 rounded-2xl shadow">
+                🤖 WorkBuddy is thinking...
+              </div>
+            </div>
+          )}
+
         </div>
 
       </div>
 
-      {/* Input Section */}
+      {/* Input */}
       <div className="bg-white border-t p-4">
 
         <div className="max-w-6xl mx-auto flex gap-2">
-
-          <button className="px-4 text-2xl">
-            📎
-          </button>
 
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                sendMessage();
+              }
+            }}
             placeholder="Share what's on your mind..."
             className="flex-1 border rounded-full px-5 py-3 outline-none focus:ring-2 focus:ring-blue-500"
           />
-
-          <button className="px-4 text-2xl">
-            🎤
-          </button>
 
           <button
             onClick={sendMessage}
