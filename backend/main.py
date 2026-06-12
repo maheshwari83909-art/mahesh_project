@@ -1,11 +1,12 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-import time
+from fastapi.middleware.cors import CORSMiddleware
+
+from ai_chat import get_ai_response
+from mongodb import conversations
 
 app = FastAPI()
 
-# Allow frontend
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,17 +18,35 @@ app.add_middleware(
 class ChatRequest(BaseModel):
     message: str
 
-# Simple "AI simulation"
-def generate_reply(message: str):
-    reply = f"Hey! I got your message: {message}. I am here to help you 👍"
-    
-    # simulate streaming (word by word)
-    for word in reply.split():
-        yield word + " "
-        time.sleep(0.1)
+
+@app.get("/")
+def home():
+    return {"message": "WorkBuddy AI Backend Running"}
+
 
 @app.post("/chat")
 def chat(req: ChatRequest):
-    return {
-        "response": " ".join(req.message.split()[:10]) + " 👍 (short reply mode)"
-    }
+
+    try:
+        print("User Message:", req.message)
+
+        ai_reply = get_ai_response(req.message)
+
+        print("AI Reply:", ai_reply)
+
+        conversations.insert_one({
+            "employee": "Mahesh",
+            "message": req.message,
+            "reply": ai_reply
+        })
+
+        return {
+            "reply": ai_reply
+        }
+
+    except Exception as e:
+        print("ERROR:", str(e))
+
+        return {
+            "reply": f"Backend Error: {str(e)}"
+        }
